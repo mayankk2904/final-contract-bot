@@ -1,13 +1,13 @@
 import pyrebase
 
 firebase_config = {
-    "apiKey": "AIzaSyAUi0hL6cKqxjOp1qv4KvAxBDMjYJ486fo",
-    "authDomain": "contract-chatbot-9d881.firebaseapp.com",
-    "projectId": "contract-chatbot-9d881",
-    "storageBucket": "contract-chatbot-9d881.appspot.com",
-    "messagingSenderId": "120237478234",
-    "appId": "1:120237478234:web:9893d78c59e8b701c7a363",
-    "measurementId": "G-5TYVBN6SN3",
+    "apiKey": "your_api_key",
+    "authDomain": "your_auth_domain",
+    "projectId": "your_project_id",
+    "storageBucket": "your_storage_bucket",
+    "messagingSenderId": "your_sender_id",
+    "appId": "your_app_id",
+    "measurementId": "your_measurement_id",
     "databaseURL": ""
 }
 

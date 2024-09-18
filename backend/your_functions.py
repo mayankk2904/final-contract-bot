@@ -6,7 +6,7 @@ from langchain_community.vectorstores import Chroma
 from langchain_community.document_loaders import PyMuPDFLoader
 import os
 
-os.environ["HUGGINGFACEHUB_API_TOKEN"] = "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"
+os.environ["HUGGINGFACEHUB_API_TOKEN"] = "replace_with_your_access_token"
 
 chain = None
 
