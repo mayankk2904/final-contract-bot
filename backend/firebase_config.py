@@ -11,6 +11,9 @@ firebase_config = {
     "databaseURL": ""
 }
 
+# Go to firebase console and create a new web project and you will get the above details
+# Paste the same info in firebase.js
+
 firebase = pyrebase.initialize_app(firebase_config)
 auth = firebase.auth()
 

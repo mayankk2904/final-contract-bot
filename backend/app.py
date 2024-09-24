@@ -1,12 +1,23 @@
 from flask import Flask, request, jsonify
-from firebase_config import auth
-from your_functions import load_doc, answer_query
-from your_functions import signup_user
+import firebase_admin
+from firebase_admin import credentials, auth
+from your_functions import load_doc, answer_query, signup_user
 from flask_cors import CORS
 import os
 
+# Initialize the Flask app
 app = Flask(__name__)
 CORS(app)
+
+# Initialize Firebase Admin SDK
+cred = credentials.Certificate('your_firebase_file.json')
+
+# you can get this json file by going into the project overview of your created project, then into the overview dropdown
+# go to project settings. In the project settings, choose the service accounts tab and select on the python radio button
+# and the above json file will be downloaded. Paste that downloaded file either in the same directory as app.py or give its
+# relative path in the above code.
+
+firebase_admin.initialize_app(cred)
 
 # Create a directory to store uploaded files if it doesn't exist
 if not os.path.exists('uploads'):
@@ -21,18 +32,20 @@ def load_document():
     if file.filename == '':
         return jsonify({"error": "No selected file"}), 400
 
+    chat_index = int(request.args.get('chat_index'))
     file_path = os.path.join('uploads', file.filename)
     file.save(file_path)
 
-    # Process the file
-    result = load_doc(file_path)
+    # Process the file for the specific chat
+    result = load_doc(file_path, chat_index)
     return jsonify(result)
 
 @app.route('/answer_query', methods=['POST'])
 def get_answer():
     data = request.json
     query = data['query']
-    answer = answer_query(query)
+    chat_index = int(request.args.get('chat_index'))
+    answer = answer_query(query, chat_index)
     return jsonify(answer)
 
 @app.route('/signup', methods=['POST'])
@@ -52,10 +65,12 @@ def signup():
 
 @app.route('/login', methods=['POST'])
 def login():
-    token = request.json['token']
+    data = request.json
+    email = data['email']
+    password = data['password']
     try:
-        user = auth.sign_in_with_custom_token(token)
-        return jsonify({"message": "User logged in successfully", "user": user})
+        user = auth.get_user_by_email(email)
+        return jsonify({"message": "User logged in successfully", "user": user.email}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 400
 
