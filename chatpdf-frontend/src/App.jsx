@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import axios from 'axios';
 import { signInWithPopup, signOut, provider, auth } from './firebase';
-import { AiOutlinePaperClip } from 'react-icons/ai';
-import { FaTimes } from 'react-icons/fa';
+import { AiOutlinePaperClip, AiOutlineMenu, AiOutlineClose } from 'react-icons/ai';
+import { FaTimes, FaRobot } from 'react-icons/fa';
+import { FiSend } from 'react-icons/fi';
 import SignupForm from './SignupForm';
 import './App.css';
 
@@ -14,6 +15,8 @@ function App() {
   const [currentChat, setCurrentChat] = useState(0); // To track the active chat
   const [chats, setChats] = useState([[]]); // Store multiple chat histories
   const [showSignup, setShowSignup] = useState(false); // Toggle between signup and login
+  const [loading, setLoading] = useState(false); // Loading spinner state
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true); // Sidebar open state
 
   // Handle PDF upload
   const handlePdfChange = (e) => {
@@ -22,37 +25,49 @@ function App() {
 
   // Load PDF to backend for specific chat
   const loadDoc = async () => {
+    if (!pdf) {
+      alert('Please select a PDF to upload.');
+      return;
+    }
     const formData = new FormData();
     formData.append('pdf', pdf);
 
     try {
-        const response = await axios.post(`http://localhost:5000/load_doc?chat_index=${currentChat}`, formData);
-        setStatus(response.data);
-        alert(response.data);
+      setLoading(true);
+      const response = await axios.post(`http://localhost:5000/load_doc?chat_index=${currentChat}`, formData);
+      setStatus(response.data);
+      alert(response.data);
     } catch (error) {
-        setStatus('Error loading document.');
+      setStatus('Error loading document.');
+    } finally {
+      setLoading(false);
     }
   };
 
   // Submit user query for specific chat
   const submitQuery = async () => {
+    if (!question.trim()) return;
+
     try {
-        const response = await axios.post(`http://localhost:5000/answer_query?chat_index=${currentChat}`, { query: question });
-        const newMessage = [
-            { role: 'user', content: question },
-            { role: 'bot', content: response.data },
-        ];
+      setLoading(true);
+      const response = await axios.post(`http://localhost:5000/answer_query?chat_index=${currentChat}`, { query: question });
+      const newMessage = [
+        { role: 'user', content: question, timestamp: new Date().toLocaleTimeString() },
+        { role: 'bot', content: response.data, timestamp: new Date().toLocaleTimeString() },
+      ];
 
-        const updatedChats = [...chats];
-        updatedChats[currentChat] = [...chats[currentChat], ...newMessage];
-        setChats(updatedChats);
+      const updatedChats = [...chats];
+      updatedChats[currentChat] = [...chats[currentChat], ...newMessage];
+      setChats(updatedChats);
 
-        setQuestion('');
+      setQuestion('');
     } catch (error) {
-        const newMessage = [{ role: 'bot', content: 'Error answering query.' }];
-        const updatedChats = [...chats];
-        updatedChats[currentChat] = [...chats[currentChat], ...newMessage];
-        setChats(updatedChats);
+      const newMessage = [{ role: 'bot', content: 'Error answering query.', timestamp: new Date().toLocaleTimeString() }];
+      const updatedChats = [...chats];
+      updatedChats[currentChat] = [...chats[currentChat], ...newMessage];
+      setChats(updatedChats);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -101,26 +116,41 @@ function App() {
   };
 
   return (
-    <div className="flex">
-      {/* Sidebar for Chat History */}
-      <div className="w-1/4 bg-gray-200 p-4">
-        <button onClick={handleNewChat} className="p-2 bg-blue-500 text-white rounded mb-4 w-full">
-          New Chat
-        </button>
-        {chats.map((chat, index) => (
-          <div
-            key={index}
-            onClick={() => handleSwitchChat(index)} // Call the switch function here
-            className={`p-2 cursor-pointer ${index === currentChat ? 'bg-blue-300' : 'bg-white'}`}
-          >
-            Chat {index + 1}
+    <div className="flex h-screen">
+      {/* Sidebar for Chat History - Display only if user is logged in */}
+      {user && (
+        <div className={`transition-all duration-300 ${isSidebarOpen ? 'w-1/4' : 'w-16'} bg-gray-900 text-white p-4 overflow-auto`}>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className={`text-lg font-semibold transition-all ${isSidebarOpen ? 'block' : 'hidden'}`}>
+              Chats
+            </h2>
+            <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="text-xl text-white focus:outline-none">
+              {isSidebarOpen ? <AiOutlineClose /> : <AiOutlineMenu />}
+            </button>
           </div>
-        ))}
-      </div>
+          <button
+            onClick={handleNewChat}
+            className={`p-2 bg-green-500 hover:bg-green-400 text-white rounded mb-4 w-full transition-all ${isSidebarOpen ? 'block' : 'hidden'}`}
+          >
+            New Chat
+          </button>
+          <div className="space-y-4">
+            {chats.map((chat, index) => (
+              <div
+                key={index}
+                onClick={() => handleSwitchChat(index)} // Call the switch function here
+                className={`p-2 cursor-pointer rounded-lg ${index === currentChat ? 'bg-blue-500' : 'bg-gray-700 hover:bg-gray-600'} transition-all`}
+              >
+                {isSidebarOpen ? `Chat ${index + 1}` : index + 1}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Main Chat Window */}
-      <div className="w-3/4">
-        <nav className="bg-blue-500 p-4 text-white">
+      <div className={`flex-grow bg-gray-100 ${isSidebarOpen ? 'w-3/4' : 'w-full'} transition-all`}>
+        <nav className="bg-blue-600 p-4 text-white">
           <div className="container mx-auto flex justify-between items-center">
             <h1 className="text-xl font-bold">ContractLens - See Every Detail Clearly</h1>
             <div>
@@ -128,16 +158,16 @@ function App() {
                 <>
                   <button
                     onClick={handleGoogleLogin}
-                    className="mr-4"
+                    className="mr-4 bg-green-500 hover:bg-green-400 px-4 py-2 rounded transition-all"
                   >
                     Login
                   </button>
-                  <button onClick={() => setShowSignup(true)}>
+                  <button onClick={() => setShowSignup(true)} className="bg-blue-500 hover:bg-blue-400 px-4 py-2 rounded transition-all">
                     Signup
                   </button>
                 </>
               ) : (
-                <button onClick={handleLogout} className="p-2 bg-red-500 text-white rounded">
+                <button onClick={handleLogout} className="p-2 bg-red-500 hover:bg-red-400 text-white rounded transition-all">
                   Logout
                 </button>
               )}
@@ -145,51 +175,83 @@ function App() {
           </div>
         </nav>
 
-        <div className="container mx-auto p-4">
+        <div className="container mx-auto p-4 h-full flex flex-col">
           {!user ? (
-            <div className="flex justify-center mt-10">
-              {showSignup && <SignupForm />}
+            <div className="flex justify-center items-center h-full flex-col space-y-8 p-6 bg-gradient-to-b from-blue-100 via-white to-blue-100">
+              <div className="relative w-24 h-24">
+                <div className="absolute top-0 left-0 right-0 bottom-0 m-auto animate-ping-slow bg-blue-300 rounded-full opacity-75"></div>
+                <FaRobot className="text-7xl text-blue-600 drop-shadow-lg animate-spin ml-3 mt-2" />
+              </div>
+              <h1 className="text-4xl font-extrabold text-gray-800 animate-bounce">
+                Welcome to <span className="text-blue-600">ContractLens</span>
+              </h1>
+              <p className="text-xl text-gray-600 animate-fade-in text-center leading-relaxed max-w-lg">
+                Your AI-powered assistant for smarter contract analysis. Upload contracts, ask questions, and get real-time, detailed answers. Transform the way you understand agreements with AI precision.
+              </p>
+              <div className="text-center">
+                <p className="text-lg font-medium text-gray-500 mb-4 animate-fade-in-up">
+                  Upload your first contract to get started!
+                </p>
+                <button className="bg-blue-500 hover:bg-blue-400 text-white font-bold py-2 px-6 rounded-full shadow-lg transform hover:scale-105 transition-transform duration-300 ease-in-out animate-fade-in-up">
+                  Upload Contract
+                </button>
+              </div>
             </div>
           ) : (
-            <div>
-              <div className="flex justify-between">
-                <p>Welcome, {user.displayName}</p>
-              </div>
-
+            <div className="flex flex-col h-full">
               {/* Message Display */}
-              <div className="flex-grow overflow-auto p-4" style={{ paddingBottom: '130px' }}>
-                <div className="space-y-4">
-                  {chats[currentChat].map((msg, index) => (
-                    <div key={index} className={`flex ${msg.role === 'bot' ? 'justify-start' : 'justify-end'}`}>
-                      <div className={`p-3 rounded-lg ${msg.role === 'bot' ? 'bg-gray-200' : 'bg-blue-500 text-white'}`}>
-                        {msg.content}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+              <div className="flex-grow overflow-y-auto p-4 space-y-4" style={{ paddingBottom: '130px' }}>
+                {chats[currentChat].map((msg, index) => (
+                  <div
+                    key={index}
+                    className={`p-2 rounded-lg ${msg.role === 'user' ? 'bg-blue-100 self-end' : 'bg-gray-100 self-start'}`}
+                  >
+                    <strong>{msg.role === 'user' ? 'You' : 'Bot'}:</strong> {msg.content}
+                    <div className="text-xs text-gray-500 mt-1">{msg.timestamp}</div>
+                  </div>
+                ))}
               </div>
 
-              {/* PDF Status Section */}
-              {pdf && (
-                <div className="fixed bottom-16 left-0 right-0 bg-gray-200 p-2 flex items-center border-t border-gray-300">
-                  <span className="flex-grow text-gray-700">{pdf.name}</span>
-                  <FaTimes className="text-red-500 cursor-pointer" onClick={removePdf} />
+              {/* Document Load Section (Bottom) */}
+              <div className="absolute bottom-0 left-0 right-0 bg-white p-4 border-t shadow-md flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <label className="flex items-center cursor-pointer">
+                    <AiOutlinePaperClip className="text-2xl text-gray-600 hover:text-blue-500 transition-all" />
+                    <input type="file" className="hidden" onChange={handlePdfChange} />
+                  </label>
+                  {pdf && (
+                    <div className="flex items-center space-x-2">
+                      <span className="font-semibold text-gray-700">{pdf.name}</span>
+                      <button onClick={removePdf}>
+                        <FaTimes className="text-xl text-red-500" />
+                      </button>
+                    </div>
+                  )}
+                  <button
+                    onClick={loadDoc}
+                    className="px-4 py-2 bg-blue-500 hover:bg-blue-400 text-white rounded transition-all"
+                  >
+                    Load Document
+                  </button>
                 </div>
-              )}
+                {status && <div className="text-sm font-semibold text-gray-700">{status}</div>}
 
-              {/* Input Bar */}
-              <div className="fixed bottom-0 left-0 right-0 bg-gray-100 p-4 flex items-center border-t border-gray-300">
-                <AiOutlinePaperClip className="text-xl cursor-pointer mr-2" onClick={() => document.getElementById('fileInput').click()} />
-                <input type="file" id="fileInput" className="hidden" onChange={handlePdfChange} />
-                <button onClick={loadDoc} className="p-2 bg-blue-500 text-white rounded mr-4">Load PDF</button>
-                <input
-                  type="text"
-                  placeholder="Type in your question"
-                  value={question}
-                  onChange={(e) => setQuestion(e.target.value)}
-                  className="p-2 border border-gray-300 rounded flex-grow"
-                />
-                <button onClick={submitQuery} className="ml-2 p-2 bg-green-500 text-white rounded">Submit</button>
+                {/* Input Section */}
+                <div className="flex items-center space-x-2 w-full ml-4">
+                  <input
+                    type="text"
+                    placeholder="Ask a question..."
+                    className="flex-grow p-2 border border-gray-300 rounded focus:outline-none"
+                    value={question}
+                    onChange={(e) => setQuestion(e.target.value)}
+                  />
+                  <button
+                    onClick={submitQuery}
+                    className="p-2 bg-blue-500 hover:bg-blue-400 text-white rounded transition-all"
+                  >
+                    <FiSend className="text-xl" />
+                  </button>
+                </div>
               </div>
             </div>
           )}
